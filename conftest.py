@@ -4,8 +4,10 @@ import platform
 from typing import Callable, List, Tuple
 
 import pytest
-from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
+
+# from selenium import webdriver
+from seleniumwire import webdriver
 
 
 def pytest_addoption(parser):
