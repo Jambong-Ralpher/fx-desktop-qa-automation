@@ -256,5 +256,11 @@
         "selectorData": "primaryBrowserLocale",
         "strategy": "id",
         "groups": []
+    },
+
+    "privacy-enable-https-all-windows": {
+        "selectorData": "httpsOnlyRadioEnabled",
+        "strategy": "id",
+        "groups": []
     }
 }
