@@ -166,9 +166,6 @@ def driver(
         options.binary_location = fx_executable
         for opt, value in set_prefs:
             options.set_preference(opt, value)
-
-        options.set_capability("loggingPrefs", {"browser": "ALL"})
-
         driver = webdriver.Firefox(options=options)
         separator = "x"
         if separator not in opt_window_size:

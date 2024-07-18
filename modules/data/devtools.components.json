@@ -12,6 +12,19 @@
         "groups": [
             "requiredForPage"
         ]
+    },
+
+    "dev-tools-iframe": {
+        "selectorData": "browser[class='devtools-toolbox-bottom-iframe']",
+        "strategy": "css",
+        "groups": []
+    },
+
+    "console-tab-button": {
+        "selectorData": "toolbox-tab-webconsole",
+        "strategy": "id",
+        "shadowParent": "dev-tools-iframe",
+        "groups": []
     }
 
 }
