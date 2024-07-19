@@ -23,7 +23,6 @@
     "console-tab-button": {
         "selectorData": "toolbox-tab-webconsole",
         "strategy": "id",
-        "shadowParent": "dev-tools-iframe",
         "groups": []
     }
 
