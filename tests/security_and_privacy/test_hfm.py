@@ -58,11 +58,13 @@ def test_hfm_enable_https_mode(driver: Firefox):
     panel_ui.open_private_window()
     nav.switch_to_new_window()
 
-    # generic_page.context_click("body")
+    generic_page.context_click("body")
     # context_menu.click_and_hide_menu("context-menu-inspect")
-    context_menu.click_context_item("context-menu-inspect")
-    context_menu.hide_popup_by_child_node(inspect_option)
-    devtools.check_opened()
+    # context_menu.click_context_item("context-menu-inspect")
+    # context_menu.hide_popup_by_child_node(inspect_option)
+    # devtools.check_opened()
+    context_menu.click_and_hide_menu("context-menu-inspect")
+    dev_tools.check_opened()
 
     nav.search("https://permission.site/")
     sleep(5)
