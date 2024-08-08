@@ -1,0 +1,24 @@
+name: Debug macOS Runner
+
+on: [push]
+
+jobs:
+  debug:
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Install SSH server
+        run: |
+          sudo systemsetup -f -setremotelogin on
+          echo "${{ secrets.SARINA_SSH_KEY }}" >> ~/.ssh/authorized_keys
+          sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
+          sudo launchctl start com.openssh.sshd
+
+      - name: Output SSH Command
+        run: echo "ssh -i <path-to-private-key> -o 'StrictHostKeyChecking=no' runner@$(hostname)"
+
+      - name: Keep Job Running
+        run: |
+          while true; do sleep 100; done
