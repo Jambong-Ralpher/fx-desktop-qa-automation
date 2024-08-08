@@ -20,6 +20,10 @@ jobs:
       - name: Output SSH Command
         run: echo "ssh -i <path-to-private-key> -o 'StrictHostKeyChecking=no' runner@$(hostname)"
 
-      - name: Keep Job Running
+      - name: Verify SSH Configuration
         run: |
-          while true; do sleep 100; done
+          cat ~/.ssh/authorized_keys
+          sudo launchctl list | grep ssh
+
+      - name: Keep Job Running
+        run: sleep 3600
