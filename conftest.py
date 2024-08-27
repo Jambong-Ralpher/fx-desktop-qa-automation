@@ -16,6 +16,13 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from modules import testrail as tr
+
+FX_VERSION_RE = re.compile(r"Mozilla Firefox (\d+)\.(\d\d?)b(\d\d?)")
+TESTRAIL_BASE = "https://mozilla.testrail.io"
+TESTRAIL_FX_DESK_PRJ = "17"
+TESTRAIL_RUN_FMT = "[{channel} {major}] Automated testing {build}"
+
 
 def screenshot_content(driver: Firefox, opt_ci: bool, test_name: str) -> None:
     """
@@ -273,6 +280,41 @@ def version(fx_executable: str):
     return check_output([fx_executable, "--version"]).strip().decode()
 
 
+@pytest.fixture()
+def testrail(version: str):
+    saved_version = open("version.txt").read().strip()
+    # Future: Do a full comparison of versions
+    if version == saved_version:
+        return None
+    version_match = FX_VERSION_RE.match(version)
+    (major, minor, build) = [version_match[n] for n in range(1, 4)]
+
+    # Do TestRail init
+    tr_session = tr.TestRail(
+        TESTRAIL_BASE,
+        os.environ.get("TESTRAIL_USERNAME"),
+        os.environ.get("TESTRAIL_API_KEY"),
+    )
+
+    major_milestone = tr_session.matching_milestone(
+        TESTRAIL_FX_DESK_PRJ, f"Firefox {major}"
+    )
+    channel = os.environ.get("STARFOX_CHANNEL")
+    if not channel:
+        channel = "Beta"
+    channel_milestone = tr_session.matching_submilestone(
+        major_milestone, f"{channel} {major}"
+    )
+    run_title = (
+        TESTRAIL_RUN_FMT.replace("{channel}", channel)
+        .replace("{major}", major)
+        .replace("{build}", build)
+    )
+    expected_run = tr_session.matching_plan_in_milestone(
+        TESTRAIL_FX_DESK_PRJ, channel_milestone.get("id"), run_title
+    )
+
+
 @pytest.fixture(autouse=True)
 def driver(
     fx_executable: str,
@@ -282,7 +324,6 @@ def driver(
     opt_ci: bool,
     opt_window_size: str,
     use_profile: Union[bool, str],
-    version: str,
     suite_id: str,
     test_case: str,
     env_prep,
@@ -363,7 +404,6 @@ def driver(
         plan_id = os.environ.get("MILESTONE_ID")
         if plan_id:
             platform_info = platform.uname()
-            logging.info(version)
             logging.info(f"Get runs from plan {plan_id}")
             logging.info(f"Filter runs that have suite {suite_id}")
             logging.info(f"Filter results to match {platform_info}")

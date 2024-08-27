@@ -121,7 +121,7 @@ class TestRail:
         }
         return self.client.send_post(f"add_run/{testrail_project_id}", data)
 
-    def does_milestone_exist(self, testrail_project_id, milestone_name):
+    def matching_milestone(self, testrail_project_id, milestone_name):
         num_of_milestones_to_check = 10  # check last 10 milestones
         milestones = self._get_milestones(
             testrail_project_id
@@ -130,8 +130,21 @@ class TestRail:
             -num_of_milestones_to_check:
         ]:  # check last 10 api responses
             if milestone_name == milestone["name"]:
-                return True
-        return False
+                return milestone
+        return None
+
+    def matching_submilestone(self, milestone, submile_name):
+        for submile in milestone["milestones"]:
+            if submile_name == submile["name"]:
+                return submile
+        return None
+
+    def matching_plan_in_milestone(self, testrail_project_id, milestone_id, plan_name):
+        plans = self._get_plans_in_milestone(testrail_project_id, milestone_id)
+        for plan in plans:
+            if plan_name == plan["name"]:
+                return plan
+        return None
 
     def update_test_cases_to_passed(
         self, testrail_project_id, testrail_run_id, testrail_suite_id
@@ -156,6 +169,11 @@ class TestRail:
 
     def _get_milestones(self, testrail_project_id):
         return self.client.send_get(f"get_milestones/{testrail_project_id}")
+
+    def _get_plans_in_milestone(self, testrail_project_id, milestone_id):
+        return self.client.send_get(
+            f"get_plans/{testrail_project_id}?milestone_id={milestone_id}"
+        )
 
     def _retry_api_call(self, api_call, *args, max_retries=3, delay=5):
         """
