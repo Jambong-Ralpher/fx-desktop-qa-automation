@@ -24,6 +24,7 @@ env
 *.xml
 test.sh
 file[0-9]*.txt
+.report.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

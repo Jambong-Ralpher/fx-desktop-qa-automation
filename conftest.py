@@ -280,6 +280,11 @@ def version(fx_executable: str):
     return check_output([fx_executable, "--version"]).strip().decode()
 
 
+@pytest.fixture
+def test_case():
+    return None
+
+
 @pytest.fixture()
 def testrail(version: str):
     saved_version = open("version.txt").read().strip()
@@ -329,6 +334,7 @@ def driver(
     env_prep,
     tmp_path,
     request,
+    json_metadata,
 ):
     """
     Return the webdriver object.
@@ -393,6 +399,7 @@ def driver(
         WebDriverWait(driver, timeout=40).until(
             EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
+        json_metadata["test_case"] = test_case
         yield driver
     except (WebDriverException, TimeoutException) as e:
         logging.warning(f"DRIVER exception: {e}")
