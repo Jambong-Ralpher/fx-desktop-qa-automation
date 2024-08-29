@@ -14,6 +14,7 @@ Copyright Gurock Software GmbH. See license.md for details.
 
 import base64
 import json
+import logging
 
 import requests
 
@@ -126,10 +127,11 @@ class TestRail:
         milestones = self._get_milestones(
             testrail_project_id
         )  # returns reverse chronological order
-        for milestone in milestones[
-            -num_of_milestones_to_check:
-        ]:  # check last 10 api responses
+        logging.info(f"Found {len(milestones)} milestones")
+        for milestone in milestones:  # check last 10 api responses
+            logging.info(f"{milestone_name} - {milestone['name']}")
             if milestone_name == milestone["name"]:
+                logging.info(milestone)
                 return milestone
         return None
 
@@ -143,7 +145,7 @@ class TestRail:
         plans = self._get_plans_in_milestone(testrail_project_id, milestone_id)
         for plan in plans:
             if plan_name == plan["name"]:
-                return plan
+                return self._get_full_plan(plan.get("id"))
         return None
 
     def update_test_cases_to_passed(
@@ -168,12 +170,17 @@ class TestRail:
         return self.client.send_post(f"add_results_for_cases/{testrail_run_id}", data)
 
     def _get_milestones(self, testrail_project_id):
-        return self.client.send_get(f"get_milestones/{testrail_project_id}")
+        milestone_obj = self.client.send_get(f"get_milestones/{testrail_project_id}")
+        return milestone_obj.get("milestones")
 
     def _get_plans_in_milestone(self, testrail_project_id, milestone_id):
-        return self.client.send_get(
-            f"get_plans/{testrail_project_id}?milestone_id={milestone_id}"
+        plan_obj = self.client.send_get(
+            f"get_plans/{testrail_project_id}&milestone_id={milestone_id}"
         )
+        return plan_obj.get("plans")
+
+    def _get_full_plan(self, plan_id):
+        return self.client.send_get(f"get_plan/{plan_id}")
 
     def _retry_api_call(self, api_call, *args, max_retries=3, delay=5):
         """

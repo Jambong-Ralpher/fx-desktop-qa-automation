@@ -19,9 +19,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from modules import testrail as tr
 
 FX_VERSION_RE = re.compile(r"Mozilla Firefox (\d+)\.(\d\d?)b(\d\d?)")
-TESTRAIL_BASE = "https://mozilla.testrail.io"
 TESTRAIL_FX_DESK_PRJ = "17"
-TESTRAIL_RUN_FMT = "[{channel} {major}] Automated testing {build}"
+TESTRAIL_RUN_FMT = "[{channel} {major}] Automated testing {major}.{minor}b{build}"
 
 
 def screenshot_content(driver: Firefox, opt_ci: bool, test_name: str) -> None:
@@ -277,7 +276,19 @@ def use_profile():
 
 @pytest.fixture(autouse=True)
 def version(fx_executable: str):
-    return check_output([fx_executable, "--version"]).strip().decode()
+    version = check_output([fx_executable, "--version"]).strip().decode()
+    return version
+
+
+@pytest.fixture()
+def machine_config():
+    uname = platform.uname()
+    if uname.system == "Darwin":
+        mac_major = platform.mac_ver()[0].split(".")[0]
+        return f"MacOS {mac_major} {uname.machine.lower()}"
+    else:
+        os_major = uname.version.split(".")[0]
+        return f"{uname.system} {os.major} {uname.machine.lower()}"
 
 
 @pytest.fixture
@@ -285,18 +296,21 @@ def test_case():
     return None
 
 
-@pytest.fixture()
-def testrail(version: str):
-    saved_version = open("version.txt").read().strip()
-    # Future: Do a full comparison of versions
-    if version == saved_version:
+def pytest_sessionfinish(session):
+    if not os.environ.get("TESTRAIL_REPORT"):
+        logging.info(
+            "Not reporting to TestRail. Set env var TESTRAIL_REPORT to activate reporting."
+        )
         return None
-    version_match = FX_VERSION_RE.match(version)
+    report = session.config._json_report.report
+    version_match = FX_VERSION_RE.match(
+        report.get("tests")[0].get("metadata").get("fx_version")
+    )
     (major, minor, build) = [version_match[n] for n in range(1, 4)]
 
     # Do TestRail init
     tr_session = tr.TestRail(
-        TESTRAIL_BASE,
+        os.environ.get("TESTRAIL_BASE_URL"),
         os.environ.get("TESTRAIL_USERNAME"),
         os.environ.get("TESTRAIL_API_KEY"),
     )
@@ -310,14 +324,69 @@ def testrail(version: str):
     channel_milestone = tr_session.matching_submilestone(
         major_milestone, f"{channel} {major}"
     )
-    run_title = (
+    plan_title = (
         TESTRAIL_RUN_FMT.replace("{channel}", channel)
         .replace("{major}", major)
+        .replace("{minor}", minor)
         .replace("{build}", build)
     )
-    expected_run = tr_session.matching_plan_in_milestone(
-        TESTRAIL_FX_DESK_PRJ, channel_milestone.get("id"), run_title
+    expected_plan = tr_session.matching_plan_in_milestone(
+        TESTRAIL_FX_DESK_PRJ, channel_milestone.get("id"), plan_title
     )
+    if expected_plan is None:
+        new_plan = True
+        logging.info(
+            f"Create plan '{plan_title}' in milestone {channel_milestone.get('id')}"
+        )
+    elif expected_plan.get("is_completed"):
+        logging.info(f"Plan found ({expected_plan.get('id')}) but is completed.")
+        return None
+    else:
+        new_plan = False
+
+    for test in report.get("tests"):
+        suite_id = test.get("metadata").get("suite_id")
+        test_case = test.get("metadata").get("test_case")
+        config = test.get("metadata").get("machine_config")
+        outcome = test.get("outcome")
+        # TODO: Remove condition in order to implement
+        if new_plan:
+            suite_entries = None
+        else:
+            suite_entries = [
+                entry
+                for entry in expected_plan.get("entries")
+                if entry.get("suite_id") == suite_id
+            ]
+        if not suite_entries:
+            # If no entry, create entry for suite and platform
+            logging.info(
+                f"Create entry in plan {expected_plan.get('id')} for suite {suite_id}"
+            )
+            pass
+        else:
+            for entry in suite_entries:
+                config_runs = [
+                    run for run in entry.get("runs") if run.get("config") == config
+                ]
+                if not config_runs:
+                    logging.info(f"Create run in entry {entry.get('id')} for {config}")
+                    # If no run for config, determine if config is one we're interested in
+                    # if so, make run
+                    pass
+                elif len(config_runs) > 1:
+                    # Throw an error; we should only have one run per config per entry in plan
+                    pass
+                else:
+                    run = config_runs[0]
+                    if run.get("is_completed"):
+                        continue
+                    if outcome in ["passed", "xpass"]:
+                        logging.info(
+                            f"Update run {run.get('id')} with pass for {test_case}"
+                        )
+                    else:
+                        logging.info(f"Leave run {run.get('id')} alone re: {test_case}")
 
 
 @pytest.fixture(autouse=True)
@@ -331,9 +400,11 @@ def driver(
     use_profile: Union[bool, str],
     suite_id: str,
     test_case: str,
+    machine_config: str,
     env_prep,
     tmp_path,
     request,
+    version,
     json_metadata,
 ):
     """
@@ -399,6 +470,9 @@ def driver(
         WebDriverWait(driver, timeout=40).until(
             EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
+        json_metadata["fx_version"] = version
+        json_metadata["machine_config"] = machine_config
+        json_metadata["suite_id"] = suite_id
         json_metadata["test_case"] = test_case
         yield driver
     except (WebDriverException, TimeoutException) as e:
