@@ -20,12 +20,15 @@ import requests
 
 
 class APIClient:
-    def __init__(self, base_url):
+    def __init__(self, base_url, local=False):
         self.user = ""
         self.password = ""
         if not base_url.endswith("/"):
             base_url += "/"
-        self.__url = base_url + "index.php?/api/v2/"
+        if local:
+            self.__url = base_url
+        else:
+            self.__url = base_url + "index.php?/api/v2/"
 
     def send_get(self, uri, filepath=None):
         """Issue a GET request (read) against the API.
@@ -105,8 +108,8 @@ class APIError(Exception):
 
 
 class TestRail:
-    def __init__(self, host, username, password):
-        self.client = APIClient(host)
+    def __init__(self, host, username, password, local=False):
+        self.client = APIClient(host, local)
         self.client.user = username
         self.client.password = password
 

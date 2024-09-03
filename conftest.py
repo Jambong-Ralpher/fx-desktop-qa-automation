@@ -309,10 +309,13 @@ def pytest_sessionfinish(session):
     (major, minor, build) = [version_match[n] for n in range(1, 4)]
 
     # Do TestRail init
+    local = os.environ.get("TESTRAIL_BASE_URL").split("/")[2].startswith("127")
+    logging.info(f"local = {local}")
     tr_session = tr.TestRail(
         os.environ.get("TESTRAIL_BASE_URL"),
         os.environ.get("TESTRAIL_USERNAME"),
         os.environ.get("TESTRAIL_API_KEY"),
+        local,
     )
 
     major_milestone = tr_session.matching_milestone(
