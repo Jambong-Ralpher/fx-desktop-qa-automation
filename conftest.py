@@ -297,6 +297,23 @@ def test_case():
 
 
 def pytest_sessionfinish(session):
+    if not hasattr(session.config, "workerinput"):
+        import psutil
+
+        reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+        for proc in psutil.process_iter(["name", "pid", "status"]):
+            try:
+                if (
+                    proc.create_time() > reporter._sessionstarttime
+                    and proc.name().startswith("firefox")
+                ):
+                    logging.info(f"found remaining process: {proc.pid}")
+                    proc.kill()
+            except (ProcessLookupError, psutil.NoSuchProcess):
+                logging.warning("Failed to kill process.")
+                pass
+
+    #TESTRAIL - WILL FACTOR OUT
     if not os.environ.get("TESTRAIL_REPORT"):
         logging.info(
             "Not reporting to TestRail. Set env var TESTRAIL_REPORT to activate reporting."
@@ -333,13 +350,20 @@ def pytest_sessionfinish(session):
         .replace("{minor}", minor)
         .replace("{build}", build)
     )
+    milestone_id = channel_milestone.get("id")
     expected_plan = tr_session.matching_plan_in_milestone(
-        TESTRAIL_FX_DESK_PRJ, channel_milestone.get("id"), plan_title
+        TESTRAIL_FX_DESK_PRJ, milestone_id, plan_title
     )
     if expected_plan is None:
         new_plan = True
         logging.info(
-            f"Create plan '{plan_title}' in milestone {channel_milestone.get('id')}"
+            f"Create plan '{plan_title}' in milestone {milestone_id}"
+        )
+        tr_session.create_new_plan(
+            TESTRAIL_FX_DESK_PRJ,
+            plan_title,
+            description="Automation-generated test plan",
+            milestone_id=milestone_id
         )
     elif expected_plan.get("is_completed"):
         logging.info(f"Plan found ({expected_plan.get('id')}) but is completed.")

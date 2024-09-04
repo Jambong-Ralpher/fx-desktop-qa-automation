@@ -151,6 +151,17 @@ class TestRail:
                 return self._get_full_plan(plan.get("id"))
         return None
 
+    def create_new_plan(self, testrail_project_id, name, description=None, milestone_id=None, entries=None):
+        payload = {
+            "name": name,
+            "description": description,
+            "milestone_id": milestone_id
+        }
+        if entries:
+            payload["entries"] = entries
+        return self.client.send_post(f"/add_plan/{testrail_project_id}", payload)
+
+
     def update_test_cases_to_passed(
         self, testrail_project_id, testrail_run_id, testrail_suite_id
     ):
