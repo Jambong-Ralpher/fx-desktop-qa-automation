@@ -371,37 +371,56 @@ def pytest_sessionfinish(session):
     else:
         new_plan = False
 
+    entry_changes = {}
     for test in report.get("tests"):
-        suite_id = test.get("metadata").get("suite_id")
+        (suite_id_str, suite_description) = test.get("metadata").get("suite_id")
+        suite_id = int(suite_id_str.replace("S",""))
         test_case = test.get("metadata").get("test_case")
         config = test.get("metadata").get("machine_config")
         outcome = test.get("outcome")
-        # TODO: Remove condition in order to implement
-        if new_plan:
-            suite_entries = None
-        else:
-            suite_entries = [
-                entry
-                for entry in expected_plan.get("entries")
-                if entry.get("suite_id") == suite_id
-            ]
+
+        suite_entries = [
+            entry
+            for entry in expected_plan.get("entries")
+            if entry.get("suite_id") == suite_id
+        ]
         if not suite_entries:
             # If no entry, create entry for suite and platform
             logging.info(
                 f"Create entry in plan {expected_plan.get('id')} for suite {suite_id}"
             )
-            pass
+            entry_changes[suite_id] = {
+                "change_type": "create",
+                "name": suite_description,
+                "case_ids": [int(test_case)],
+                "config": config
+            }
+
+            # expected_plan["entries"].append(
+            #     tr_session.create_new_plan_entry(
+            #         expected_plan.get("id"),
+            #         suite_id,
+            #         name=suite_description,
+            #         description="Automation-generated test plan entry",
+            #         case_ids=[int(test_case)]
+            #     )
+            # )
         else:
             for entry in suite_entries:
+                if int(test_case) not in entry_changes[suite_id]["case_ids"]:
+                    entry_changes[suite_id]["case_ids"].append(int(test_case))
+                logging.info(f"For entry {entry['name']}, update if case_ids does not contain {test_case}")
+                logging.info(f"If runs list is empty, add placeholder.")
+                if not entry.get("runs"):
+                    if entry_changes[suite_id].get("runs_to_add"):
+                        entry_changes[suite_id]["runs_to_add"].append(int(test_case))
+                    else:
+                        entry_changes[suite_id]["runs_to_add"] = [int(test_case)]
+                    continue
                 config_runs = [
                     run for run in entry.get("runs") if run.get("config") == config
                 ]
-                if not config_runs:
-                    logging.info(f"Create run in entry {entry.get('id')} for {config}")
-                    # If no run for config, determine if config is one we're interested in
-                    # if so, make run
-                    pass
-                elif len(config_runs) > 1:
+                if len(config_runs) > 1:
                     # Throw an error; we should only have one run per config per entry in plan
                     pass
                 else:

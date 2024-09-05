@@ -161,6 +161,18 @@ class TestRail:
             payload["entries"] = entries
         return self.client.send_post(f"/add_plan/{testrail_project_id}", payload)
 
+    def create_new_plan_entry(self, plan_id, suite_id, name=None, description=None, case_ids=None, runs=None):
+        payload = {
+            "suite_id": suite_id,
+            "name": name,
+            "description": description,
+            "include_all": bool(case_ids)
+        }
+        if payload.get("include_all"):
+            payload["case_ids"] = case_ids
+        if runs:
+            payload["runs"] = runs
+        return self.client.send_post(f"/add_plan_entry/{plan_id}", payload)
 
     def update_test_cases_to_passed(
         self, testrail_project_id, testrail_run_id, testrail_suite_id
