@@ -359,7 +359,7 @@ def pytest_sessionfinish(session):
         logging.info(
             f"Create plan '{plan_title}' in milestone {milestone_id}"
         )
-        tr_session.create_new_plan(
+        expected_plan = tr_session.create_new_plan(
             TESTRAIL_FX_DESK_PRJ,
             plan_title,
             description="Automation-generated test plan",
