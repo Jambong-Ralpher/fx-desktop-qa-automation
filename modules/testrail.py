@@ -184,12 +184,13 @@ class TestRail:
         return self.client.send_post(f"/add_plan_entry/{plan_id}", payload)
 
     def update_test_cases_to_passed(
-        self, testrail_project_id, testrail_run_id, testrail_suite_id
+        self, testrail_project_id, testrail_run_id, testrail_suite_id, test_case_ids = []
     ):
-        test_cases = self._get_test_cases(testrail_project_id, testrail_suite_id)
+        if not test_case_ids:
+            test_case_ids = [test_case.get("id") for test_case in self._get_test_cases(testrail_project_id, testrail_suite_id)]
         data = {
             "results": [
-                {"case_id": test_case["id"], "status_id": 1} for test_case in test_cases
+                {"case_id": test_case_id, "status_id": 1} for test_case_id in test_case_ids
             ]
         }
         return self._update_test_run_results(testrail_run_id, data)

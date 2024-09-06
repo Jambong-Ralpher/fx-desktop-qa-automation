@@ -1,11 +1,33 @@
 from modules import testrail as tr
 from modules.testrail import TestRail
 
-def execute_changes(testrail_session, changelist):
-    pass
+def execute_changes(testrail_session: TestRail, changelist):
+    for suite_id in changelist:
+        change = changelist[suite_id]
 
-def mark_passes(testrail_session: TestRail, test_passes):
-    
+        # Check if config exists, if not create it
+        if change.get("change_type") == "create":
+            # Go through runs_to_add and create them
+            # Update the following to take config? 
+            testrail_session.create_new_plan_entry(
+                plan_id=change.get("plan_id"),
+                suite_id=suite_id,
+                name=suite_description,
+                description="Automation-generated test plan entry",
+                case_ids=change.get("case_ids")
+                #config=config
+            )
+
+def mark_passes(testrail_session: TestRail, test_results):
+    for run_id in test_results["results"]:
+        suite_id = test_results["results"][run_id][0].get("suite_id")
+        test_cases = [result.get("test_case") for result in test_results["results"][run_id]]
+        testrail_session.update_test_cases_to_passed(
+            test_results.get("project_id"),
+            run_id,
+            suite_id,
+            test_cases
+        )
 
 def collect_changes(report):
     version_match = FX_VERSION_RE.match(
@@ -60,7 +82,10 @@ def collect_changes(report):
         new_plan = False
 
     entry_changes = {}
-    test_passes = []
+    test_results = {
+        "project_id": testrail_project_id,
+        "results": []
+    }
     for test in report.get("tests"):
         (suite_id_str, suite_description) = test.get("metadata").get("suite_id")
         suite_id = int(suite_id_str.replace("S",""))
@@ -75,10 +100,12 @@ def collect_changes(report):
         ]
         if not suite_entries:
             # If no entry, create entry for suite and platform
+            plan_id = expected_plan.get("id")
             logging.info(
-                f"Create entry in plan {expected_plan.get('id')} for suite {suite_id}"
+                f"Create entry in plan {plan_id} for suite {suite_id}"
             )
             entry_changes[suite_id] = {
+                "plan_id": plan_id,
                 "change_type": "create",
                 "name": suite_description,
                 "case_ids": [int(test_case)],
@@ -86,13 +113,6 @@ def collect_changes(report):
             }
 
             # expected_plan["entries"].append(
-            #     tr_session.create_new_plan_entry(
-            #         expected_plan.get("id"),
-            #         suite_id,
-            #         name=suite_description,
-            #         description="Automation-generated test plan entry",
-            #         case_ids=[int(test_case)]
-            #     )
             # )
         else:
             for entry in suite_entries:
@@ -101,6 +121,8 @@ def collect_changes(report):
                 logging.info(f"For entry {entry['name']}, update if case_ids does not contain {test_case}")
                 logging.info(f"If runs list is empty, add placeholder.")
                 if not entry.get("runs"):
+                    if not entry_changes[suite_id].get("change_type"):
+                        entry_changes[suite_id]["change_type"] = "update"
                     if entry_changes[suite_id].get("runs_to_add"):
                         entry_changes[suite_id]["runs_to_add"].append(int(test_case))
                     else:
@@ -124,16 +146,17 @@ def collect_changes(report):
                 if run.get("is_completed"):
                     logging.info(f"Run {run.get('id')} is already completed.")
                     continue
+                run_id = run.get("id")
                 if outcome in ["passed", "xpass"]:
                     logging.info(
-                        f"Update run {run.get('id')}"
+                        f"Update run {run_id}"
                     )
-                    test_passes.append({
-                        "project_id": testrail_project_id,
+                    if not test_results["results"].get(run_id):
+                        test_results["results"][run_id] = []
+                    test_results["results"][run_id].append({
                         "suite_id": suite_id,
-                        "run_id": run.get("id"),
                         "test_case": test_case
                     })
                 else:
-                    logging.info(f"Leave run {run.get('id')} alone re: {test_case}")
+                    logging.info(f"Leave run {run_id} alone re: {test_case}")
     return (entry_changes, test_passes)
