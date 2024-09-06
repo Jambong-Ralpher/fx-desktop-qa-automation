@@ -151,22 +151,31 @@ class TestRail:
                 return self._get_full_plan(plan.get("id"))
         return None
 
-    def create_new_plan(self, testrail_project_id, name, description=None, milestone_id=None, entries=None):
+    def create_new_plan(
+        self,
+        testrail_project_id,
+        name,
+        description=None,
+        milestone_id=None,
+        entries=None,
+    ):
         payload = {
             "name": name,
             "description": description,
-            "milestone_id": milestone_id
+            "milestone_id": milestone_id,
         }
         if entries:
             payload["entries"] = entries
         return self.client.send_post(f"/add_plan/{testrail_project_id}", payload)
 
-    def create_new_plan_entry(self, plan_id, suite_id, name=None, description=None, case_ids=None, runs=None):
+    def create_new_plan_entry(
+        self, plan_id, suite_id, name=None, description=None, case_ids=None, runs=None
+    ):
         payload = {
             "suite_id": suite_id,
             "name": name,
             "description": description,
-            "include_all": bool(case_ids)
+            "include_all": bool(case_ids),
         }
         if payload.get("include_all"):
             payload["case_ids"] = case_ids
