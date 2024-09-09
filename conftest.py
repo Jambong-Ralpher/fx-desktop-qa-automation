@@ -15,6 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from modules import testrail_integration as tri
 
 FX_VERSION_RE = re.compile(r"Mozilla Firefox (\d+)\.(\d\d?)b(\d\d?)")
 TESTRAIL_FX_DESK_PRJ = "17"
@@ -318,6 +319,10 @@ def pytest_sessionfinish(session):
         )
         return None
     report = session.config._json_report.report
+    tr_session = tri.testrail_init()
+    (changelist, passes) = tri.collect_changes(tr_session, report)
+    tri.execute_changes(tr_session, changelist)
+    tri.mark_passes(tr_session, passes)
 
 
 @pytest.fixture(autouse=True)

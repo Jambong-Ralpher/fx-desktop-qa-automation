@@ -125,6 +125,18 @@ class TestRail:
         }
         return self.client.send_post(f"add_run/{testrail_project_id}", data)
 
+    def create_test_run_on_plan_entry(
+        self, plan_id, entry_id, config_ids, description=None, case_ids=None
+    ):
+        payload = {
+            "config_ids": config_ids,
+            "description": description,
+            "include_all": bool(case_ids)
+        }
+        if case_ids:
+            payload["case_ids"] = case_ids
+        return self.client.send_post(f"add_run_to_plan_entry"/{plan_id}/{entry_id}, payload)
+
     def matching_milestone(self, testrail_project_id, milestone_name):
         num_of_milestones_to_check = 10  # check last 10 milestones
         milestones = self._get_milestones(
@@ -169,7 +181,7 @@ class TestRail:
         return self.client.send_post(f"/add_plan/{testrail_project_id}", payload)
 
     def create_new_plan_entry(
-        self, plan_id, suite_id, name=None, description=None, case_ids=None, runs=None
+        self, plan_id, suite_id, name=None, description=None, case_ids=None, config_ids=None, runs=None
     ):
         payload = {
             "suite_id": suite_id,
@@ -179,9 +191,22 @@ class TestRail:
         }
         if payload.get("include_all"):
             payload["case_ids"] = case_ids
+        if payload.get("config_ids"):
+            payload["config_ids"] = config_ids
         if runs:
             payload["runs"] = runs
         return self.client.send_post(f"/add_plan_entry/{plan_id}", payload)
+
+    def matching_configs(self, testrail_project_id, config_group_id, config_name):
+        configs = self.client.send_get(f"/get_configs/{testrail_project_id}").get("configs")
+        configs_in_group = [c for c in configs if c.get("group_id") == config_group_id]
+        return [c for c in configs_in_group if c.get("name") == config_name]
+
+    def add_config(self, config_group_id, name):
+        return self.client.send_post(
+            f"/add_config/{config_group_id}",
+            {"name": name}
+        )
 
     def update_test_cases_to_passed(
         self, testrail_project_id, testrail_run_id, testrail_suite_id, test_case_ids = []
